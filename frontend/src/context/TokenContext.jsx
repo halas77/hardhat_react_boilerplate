@@ -47,27 +47,51 @@ export const TokenProvider = ({ children }) => {
       console.error("Error connecting to MetaMask:", error);
       return null;
     }
+   
   };
 
-  //   transfer token
+  // Transfer token
   const transferToken = async () => {
-    if (!account || !amount) return;
-    if (!window.ethereum) return;
+    try {
+      if (!window.ethereum) {
+        console.error("Ethereum object not found. Please install MetaMask.");
+        return;
+      }
 
-    setIsLoading(true);
+      if (!account || !amount) {
+        console.error("Account or amount is missing.");
+        return;
+      }
 
-    const { contract } = await connectMetamask();
+      setIsLoading(true);
 
-    const sendToken = contract.transfer(
-      account,
-      ethers.utils.parseEther(amount)
-    );
+      const { contract, signer } = await connectMetamask();
+      if (!contract || !signer) {
+        console.error("Failed to connect to Metamask or contract not found.");
+        setIsLoading(false);
+        return;
+      }
 
-    await sendToken.wait();
+      const isValidAccount = /^0x[a-fA-F0-9]{40}$/.test(account);
+      if (!isValidAccount) {
+        console.error("Invalid Ethereum account address.");
+        setIsLoading(false);
+        return;
+      }
 
-    setIsLoading(false);
+      const sendToken = await contract.transfer(
+        account,
+        ethers.utils.parseEther(amount)
+      );
 
-    console.log("sendToken", sendToken);
+      console.log("Token transfer Loading:", sendToken.hash);
+      await sendToken.wait();
+      console.log("Token transfer successful:", sendToken);
+    } catch (error) {
+      console.error("An error occurred during the token transfer:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -79,7 +103,7 @@ export const TokenProvider = ({ children }) => {
         setAmount,
         transferToken,
         connectMetamask,
-        isLoading
+        isLoading,
       }}
     >
       {children}
